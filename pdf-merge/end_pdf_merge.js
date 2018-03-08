@@ -23,7 +23,28 @@
 var library = new Object;
 eval((new ActiveXObject("Scripting.FileSystemObject")).OpenTextFile("C:/ProgramData/Typefi/typefi-scripts/log.js", 1).ReadAll());
 
-function pdfMerge(arg0, arg1, arg2 ,  log) {
+//resolve absolute path
+function absolute(base, relative, log) {
+	log.info("Desktop : "+base);
+	var splitter = '"/"';
+
+	if(relative.indexOf("/") !== -1 && base.indexOf("\\") !== -1){
+		var re = /\\/g;
+		base = base.replace(re, "/");
+		log.info("Corrected path  "+base);
+	}
+	
+	if(relative.indexOf("\\") !== -1 && base.indexOf("/") !== -1){
+		var re = /\//g;
+		base = base.replace(re, "\\");
+		log.info("Corrected path  "+base);
+		splitter = '"\\"';
+	}
+	
+    return base +relative.replace("~/Desktop","");
+}
+
+function pdfMerge(arg0, arg1, arg2 , log, base) {
 	//	WScript.Echo("List PDF filenames in XML file.");
 
 	var outputFile = "merged.pdf";
@@ -43,6 +64,21 @@ function pdfMerge(arg0, arg1, arg2 ,  log) {
 	// Merge PDFs
 	var pdfList = xmlDoc.getElementsByTagName("pdf");
 	log.info("Processing "+pdfList.length+" PDF files");
+	
+	if(base != ""){
+		for (var i = 0; i < pdfList.length; i++) {
+			log.info("Files path :" +pdfList.item(i).text)
+			//var rename = pdfList.item(i).text.replace("C:/APPS/DATA/Typefi","").replace("c:/APPS/DATA/Typefi","");			
+			var rename = pdfList.item(i).text;			
+			// if "~/Desktop" resolve path
+			if(rename.indexOf( "~/Desktop") !== -1){
+				pdfList.item(i).text = absolute(base , rename, log);
+				log.info("Resolved path - " +absolute(base , rename, log));
+			}
+			
+		}
+	}
+	
     
 	// Main loop for merging PDF files
 	for (var i = 0; i < pdfList.length; i++) {
@@ -222,9 +258,15 @@ function pdfMerge(arg0, arg1, arg2 ,  log) {
 		var labelJob = json.action.inputs[1].value;
 
 		var pdfMergeXMLFile = jobFolder+'merge.xml';
-			
 		
-		pdfMerge(pdfMergeXMLFile, jobFolder, labelJob + ".pdf" ,  log) 
+		//var base = "C:/APPS/DATA/Typefi";
+		var base = json.action.inputs[3].value;
+        log.info("Parameters : "+json.action.inputs[3].value);
+			
+        //get desktop path
+		var objWSHShell = new ActiveXObject("WScript.Shell");	
+		var strDesktopPath = objWSHShell.SpecialFolders("Desktop");
+		pdfMerge(pdfMergeXMLFile, jobFolder, labelJob + ".pdf" ,  log, strDesktopPath) 
 			/*
 		var cmd = "cscript //nologo C:/ProgramData/Typefi/typefi-scripts/pdfMerge/pdf-merge.js \"" + pdfMergeXMLFile + "\" \"" + jobFolder +"\" \""+ labelJob + ".pdf\"";
 		log.info("Executing: "+cmd);
